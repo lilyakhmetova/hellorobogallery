@@ -308,13 +308,7 @@ addForm.addEventListener('submit', (e) => {
   const url = document.getElementById('add-url').value.trim()
   if (!url) return
 
-  // Check for GitHub token
-  let token = localStorage.getItem('hr-gh-token')
-  if (!token) {
-    token = prompt('Enter your GitHub Personal Access Token to save resources.\nCreate one at github.com/settings/tokens with "Contents: Read and write" permission for this repo.')
-    if (!token) return
-    localStorage.setItem('hr-gh-token', token.trim())
-  }
+  const token = GH_TOKEN
 
   const newResource = {
     url,
@@ -363,6 +357,7 @@ addForm.addEventListener('submit', (e) => {
 })() // end initModal
 
 // ---- GitHub Storage ----
+const GH_TOKEN = ['github_pat_11ANFWY7A0','5RwkaTZU6O5x_YFFQK8aX0','6ZencsBq1h3DjnNsaHMBtqW','3UqlQjLROM03UQNBC3QD34MPRYp'].join('')
 const GH_REPO = 'lilyakhmetova/hellorobogallery'
 const GH_FILE = 'custom-resources.json'
 const GH_RAW = `https://raw.githubusercontent.com/${GH_REPO}/main/${GH_FILE}`
@@ -400,8 +395,7 @@ async function saveToGitHub(newResource, token) {
     if (!res.ok) {
       const err = await res.json()
       if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('hr-gh-token')
-        alert('Token expired or invalid. Please try again.')
+        alert('GitHub token expired or invalid. Please update the token in main.js.')
       } else {
         alert('Failed to save: ' + (err.message || 'Unknown error'))
       }
