@@ -177,7 +177,9 @@ function renderCards(filter = 'all', query = '') {
     const matchesSearch = !q || searchStr.includes(q)
 
     if (matchesFilter && matchesSearch) {
-      grid.appendChild(createCard(r))
+      const card = createCard(r)
+      if (initialRender) card.classList.add('animate-in')
+      grid.appendChild(card)
       count++
     }
   })
@@ -188,6 +190,7 @@ function renderCards(filter = 'all', query = '') {
 
 // ---- Filter buttons ----
 let activeFilter = 'all'
+let initialRender = true
 filtersContainer.addEventListener('click', (e) => {
   if (!e.target.classList.contains('filter-btn')) return
   filtersContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
@@ -361,3 +364,4 @@ savedResources.forEach(r => {
 
 // ---- Init ----
 renderCards()
+initialRender = false
