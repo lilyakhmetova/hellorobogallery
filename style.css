@@ -111,6 +111,12 @@ a{color:inherit;text-decoration:none}
   background:linear-gradient(to top,rgba(14,14,14,.9),transparent);
   pointer-events:none;
 }
+.card-preview.loading{
+  height:0;
+  border-bottom:none;
+  background:none;
+}
+.card-preview.loading .card-preview-fade{opacity:0}
 .card-preview.no-preview{
   height:0;
   border-bottom:none;

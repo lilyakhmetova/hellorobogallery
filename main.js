@@ -136,8 +136,8 @@ function createCard(resource) {
   card.dataset.search = `${domain} ${resource.details} ${resource.types.join(' ')} ${resource.tags.join(' ')}`.toLowerCase()
 
   card.innerHTML = `
-    <div class="card-preview no-preview">
-      <img class="card-preview-img" src="${preview}" alt="" loading="lazy" onload="this.parentElement.classList.remove('no-preview')" />
+    <div class="card-preview loading">
+      <img class="card-preview-img" src="${preview}" alt="" loading="lazy" onload="this.parentElement.classList.remove('loading')" onerror="var p=this.parentElement;p.classList.remove('loading');p.classList.add('no-preview')" />
       <div class="card-preview-fade"></div>
     </div>
     <div class="card-body">
