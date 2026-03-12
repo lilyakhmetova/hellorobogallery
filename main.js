@@ -306,8 +306,15 @@ addCustomType.addEventListener('keydown', (e) => {
 addForm.addEventListener('submit', (e) => {
   e.preventDefault()
   const url = document.getElementById('add-url').value.trim()
-
   if (!url) return
+
+  // Check for GitHub token
+  let token = localStorage.getItem('hr-gh-token')
+  if (!token) {
+    token = prompt('Enter your GitHub Personal Access Token to save resources.\nCreate one at github.com/settings/tokens with "Contents: Read and write" permission for this repo.')
+    if (!token) return
+    localStorage.setItem('hr-gh-token', token.trim())
+  }
 
   const newResource = {
     url,
@@ -316,51 +323,121 @@ addForm.addEventListener('submit', (e) => {
     details: ''
   }
 
-  // Add immediately with empty description
-  validResources.push(newResource)
-  renderCards(activeFilter, searchInput.value)
+  const submitBtn = addForm.querySelector('.form-submit')
+  submitBtn.textContent = 'Saving...'
+  submitBtn.disabled = true
 
-  // Save to localStorage
-  const saved = JSON.parse(localStorage.getItem('hr-custom-resources') || '[]')
-  saved.push(newResource)
-  localStorage.setItem('hr-custom-resources', JSON.stringify(saved))
-
-  closeModal()
-
-  // Auto-fetch description from website meta
+  // Auto-fetch description first, then save
   fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`)
     .then(r => r.json())
     .then(data => {
       if (data.status === 'success' && data.data.description) {
         newResource.details = data.data.description
-        // Update localStorage
-        const s = JSON.parse(localStorage.getItem('hr-custom-resources') || '[]')
-        const match = s.find(r => r.url === url)
-        if (match) match.details = newResource.details
-        localStorage.setItem('hr-custom-resources', JSON.stringify(s))
-        renderCards(activeFilter, searchInput.value)
       }
     })
     .catch(() => {})
+    .finally(() => {
+      // Save to GitHub
+      saveToGitHub(newResource, token).then(ok => {
+        submitBtn.textContent = 'Add to Library'
+        submitBtn.disabled = false
+        if (ok) {
+          validResources.push(newResource)
+          newResource.types.forEach(t => {
+            if (!allTypes.has(t)) {
+              allTypes.add(t)
+              const btn = document.createElement('button')
+              btn.className = 'filter-btn'
+              btn.dataset.filter = t
+              btn.textContent = t
+              filtersContainer.appendChild(btn)
+            }
+          })
+          renderCards(activeFilter, searchInput.value)
+          closeModal()
+        }
+      })
+    })
 })
 
 })() // end initModal
 
-// ---- Load custom resources from localStorage ----
-const savedResources = JSON.parse(localStorage.getItem('hr-custom-resources') || '[]')
-savedResources.forEach(r => {
-  validResources.push(r)
-  r.types.forEach(t => {
-    if (!allTypes.has(t)) {
-      allTypes.add(t)
-      const btn = document.createElement('button')
-      btn.className = 'filter-btn'
-      btn.dataset.filter = t
-      btn.textContent = t
-      filtersContainer.appendChild(btn)
+// ---- GitHub Storage ----
+const GH_REPO = 'lilyakhmetova/hellorobogallery'
+const GH_FILE = 'custom-resources.json'
+const GH_RAW = `https://raw.githubusercontent.com/${GH_REPO}/main/${GH_FILE}`
+const GH_API = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`
+
+async function saveToGitHub(newResource, token) {
+  try {
+    // Get current file (need sha for update)
+    const meta = await fetch(GH_API, {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github+json' }
+    }).then(r => r.json())
+
+    let current = []
+    if (meta.content) {
+      current = JSON.parse(atob(meta.content.replace(/\n/g, '')))
     }
-  })
-})
+    current.push(newResource)
+
+    const updated = btoa(unescape(encodeURIComponent(JSON.stringify(current, null, 2))))
+
+    const res = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: `Add resource: ${newResource.url}`,
+        content: updated,
+        sha: meta.sha
+      })
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('hr-gh-token')
+        alert('Token expired or invalid. Please try again.')
+      } else {
+        alert('Failed to save: ' + (err.message || 'Unknown error'))
+      }
+      return false
+    }
+    return true
+  } catch (err) {
+    alert('Network error: ' + err.message)
+    return false
+  }
+}
+
+// ---- Load custom resources from GitHub ----
+async function loadCustomResources() {
+  try {
+    const res = await fetch(GH_RAW + '?t=' + Date.now())
+    if (!res.ok) return
+    const data = await res.json()
+    if (!Array.isArray(data) || data.length === 0) return
+    data.forEach(r => {
+      validResources.push(r)
+      r.types.forEach(t => {
+        if (!allTypes.has(t)) {
+          allTypes.add(t)
+          const btn = document.createElement('button')
+          btn.className = 'filter-btn'
+          btn.dataset.filter = t
+          btn.textContent = t
+          filtersContainer.appendChild(btn)
+        }
+      })
+    })
+    renderCards(activeFilter, searchInput.value)
+  } catch {}
+}
+loadCustomResources()
 
 // ---- Init ----
 renderCards()
