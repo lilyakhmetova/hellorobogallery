@@ -137,7 +137,7 @@ function createCard(resource) {
 
   card.innerHTML = `
     <div class="card-preview loading">
-      <img class="card-preview-img" src="${preview}" alt="" loading="lazy" onload="this.parentElement.classList.remove('loading')" onerror="var p=this.parentElement;p.classList.remove('loading');p.classList.add('no-preview')" />
+      <img class="card-preview-img" src="${preview}" alt="" loading="lazy" onload="this.parentElement.classList.remove('loading');window._coverDone&&window._coverDone()" onerror="var p=this.parentElement;p.classList.remove('loading');p.classList.add('no-preview');window._coverDone&&window._coverDone()" />
       <div class="card-preview-fade"></div>
     </div>
     <div class="card-body">
@@ -365,3 +365,22 @@ savedResources.forEach(r => {
 // ---- Init ----
 renderCards()
 initialRender = false
+
+// Disable cover transitions once all images have loaded or errored
+;(function trackCovers() {
+  const total = document.querySelectorAll('.card-preview.loading').length
+  if (total === 0) return
+  let done = 0
+  window._coverDone = function () {
+    done++
+    if (done >= total) {
+      document.querySelectorAll('.card-preview').forEach(el => {
+        el.style.transition = 'none'
+      })
+      document.querySelectorAll('.card-preview-img').forEach(el => {
+        el.style.transition = 'transform .5s var(--ease)'
+      })
+      delete window._coverDone
+    }
+  }
+})()
